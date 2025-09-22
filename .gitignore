@@ -1,0 +1,17 @@
+# created by virtualenv automatically
+.venv/bin
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+.env/
+
+# PyCharm IDE
+.idea/
+*.iml
+
+# MacOS system files
+.DS_Store
