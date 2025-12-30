@@ -23,6 +23,3 @@ The project follows a modular, MVC-style structure to keep UI logic, persistence
 - Tkinter
 - SQLite
 - ReportLab
-
-## Use Case
-Muser is designed for capturing transiet ideas, reflections, or thoughts with minimal friction, while ensuring thoughts are safely stored and easily archived for later review.
