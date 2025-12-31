@@ -4,14 +4,27 @@
 # Python cache
 __pycache__/
 *.py[cod]
+*.pyo
 
 # Virtual environment
 .venv/
 .env/
+venv/
 
 # PyCharm IDE
 .idea/
 *.iml
+.vscode/
 
 # MacOS system files
 .DS_Store
+
+# Project-specific
+musings.db
+musings.pdf
+
+# If you added a persistent settings file
+.muser_settings.json
+
+# Logs / temp
+*.log
