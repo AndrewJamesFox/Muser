@@ -3,8 +3,9 @@ from PySide6.QtCore import Qt
 import db_log
 
 class EditThoughtDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, db_path, parent=None):
         super().__init__(parent)
+        self.db_path = db_path
         self.setWindowTitle("Edit Thought")
         self.setModal(True)
         self.setMinimumSize(400, 300)
@@ -46,12 +47,13 @@ class EditThoughtDialog(QDialog):
         self.current_id = None
 
     def load_thought(self):
+        db_log.init_db(self.db_path)
         try:
             thought_id = int(self.id_input.text())
         except ValueError:
             return
         # Fetch thought from DB
-        all_thoughts = db_log.get_all_thoughts()
+        all_thoughts = db_log.get_all_thoughts(self.db_path)
         for tid, ts, content in all_thoughts:
             if tid == thought_id:
                 self.text_edit.setText(content)
@@ -64,5 +66,5 @@ class EditThoughtDialog(QDialog):
         new_content = self.text_edit.toPlainText().strip()
         if not new_content:
             return
-        db_log.update_thought(self.current_id, new_content)
+        db_log.update_thought(self.db_path, self.current_id, new_content)
         self.accept()

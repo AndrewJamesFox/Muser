@@ -4,7 +4,8 @@ import os
 SETTINGS_PATH = os.path.expanduser("~/.muser_settings.json")
 
 DEFAULT_SETTINGS = {
-    "pdf_export_dir": os.path.join(os.path.expanduser("~"), "Downloads")
+    "pdf_export_dir": os.path.join(os.path.expanduser("~"), "Downloads"),
+    "db_path": os.path.join(os.path.expanduser("~"), "musings.db")
 }
 
 def load_settings():

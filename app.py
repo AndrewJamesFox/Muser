@@ -15,14 +15,27 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtCore import Qt
 
+if getattr(sys, 'frozen', False):
+    # Running inside PyInstaller bundle
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.dirname(__file__)
+
 
 class MuserApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Muser")
         self.resize(900, 600)
+
         self.settings = settings.load_settings()
-        self.pdf_export_dir = self.settings["pdf_export_dir"]   #musings.pdf export path
+
+        self.db_path = self.settings["db_path"]
+        self.pdf_export_dir = self.settings["pdf_export_dir"]
+
+        # tell db_log which DB to use
+        db_log.DB_PATH = self.db_path
+        db_log.init_db(self.db_path)
 
         main = QHBoxLayout(self)
 
@@ -44,21 +57,21 @@ class MuserApp(QWidget):
         save_btn = QPushButton("Save")
         save_btn.setToolTip("Save the current thought (Cmd+Return)")
         save_btn.clicked.connect(self.save_thought)
-        #left_header.addWidget(save_btn, alignment=Qt.AlignRight)
+        # left_header.addWidget(save_btn, alignment=Qt.AlignRight)
         left_header.addWidget(save_btn)
 
         # edit button
         edit_btn = QPushButton("Edit")
         edit_btn.setToolTip("Edit a thought by ID (Cmd+E)")
         edit_btn.clicked.connect(self.open_edit_dialog)
-        #left_header.addWidget(edit_btn, alignment=Qt.AlignRight)
+        # left_header.addWidget(edit_btn, alignment=Qt.AlignRight)
         left_header.addWidget(edit_btn)
 
         # delete button
         delete_btn = QPushButton("Delete")
         delete_btn.setToolTip("Delete a thought by ID (Cmd+L)")
         delete_btn.clicked.connect(self.open_delete_dialog)
-        #left_header.addWidget(delete_btn, alignment=Qt.AlignRight)
+        # left_header.addWidget(delete_btn, alignment=Qt.AlignRight)
         left_header.addWidget(delete_btn)
 
         # settings button
@@ -67,7 +80,6 @@ class MuserApp(QWidget):
         left_header.addWidget(settings_btn)
 
         left_panel.addLayout(left_header)  # add left header to left panel
-
 
         # LEFT TEXT AREA
         self.text_edit = QTextEdit()
@@ -84,7 +96,7 @@ class MuserApp(QWidget):
         right_label = QLabel("Thought Log")
         right_label.setStyleSheet("font-weight: bold; font-size: 12pt;")
         right_header.addWidget(right_label, alignment=Qt.AlignLeft)
-        sort_btn = QPushButton("Sort")  #SORT BUTTON
+        sort_btn = QPushButton("Sort")  # SORT BUTTON
         sort_btn.setFixedWidth(60)
         sort_btn.clicked.connect(self.toggle_sort)
         right_header.addWidget(sort_btn, alignment=Qt.AlignRight)
@@ -94,7 +106,7 @@ class MuserApp(QWidget):
         self.scroll_area.setWidgetResizable(True)
         self.scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout(self.scroll_content)
-        self.scroll_layout.setSpacing(10) #spacing between cards
+        self.scroll_layout.setSpacing(10)  # spacing between cards
         self.scroll_layout.addStretch()
         self.scroll_area.setWidget(self.scroll_content)
 
@@ -102,11 +114,11 @@ class MuserApp(QWidget):
         right_panel.addWidget(self.scroll_area)
 
         # ADD TO MAIN
-        main.addLayout(left_panel, 2)   #add left panel
-        main.addLayout(right_panel, 1)  #add right panel
+        main.addLayout(left_panel, 2)  # add left panel
+        main.addLayout(right_panel, 1)  # add right panel
 
-        self.load_thoughts_from_db()  #load thoughts from db automatically
-
+        # db_log.init_db()    #initialize db so it always exists
+        self.load_thoughts_from_db()  # load thoughts from db automatically
 
         ###-------------------------------------------------
         ### KEYBOARD SHORTCUTS
@@ -122,7 +134,6 @@ class MuserApp(QWidget):
         # Delete Thought: Cmd+D
         delete_shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
         delete_shortcut.activated.connect(self.open_delete_dialog)
-
 
         ###-------------------------------------------------
         ### BUTTON STYLE SHEETS
@@ -175,30 +186,26 @@ class MuserApp(QWidget):
             }
         """)
 
-
     ###-------------------------------------------------
     ### HELPER FUNCTIONS
     ###-------------------------------------------------
     def show_enlarged_card(self, thought_id, timestamp, content):
         dlg = EnlargeCardDialog(thought_id, timestamp, content, parent=self)
-        dlg.showMaximized()  #maximize the dialog
-        dlg.exec()  #start modal event loop
-
+        dlg.showMaximized()  # maximize the dialog
+        dlg.exec()  # start modal event loop
 
     ## CLICK BUTTON FUNCTIONS
     def toggle_sort(self):
         self.sort_desc = not self.sort_desc
         self.load_thoughts_from_db()
 
-
     def save_thought(self):
         content = self.text_edit.toPlainText().strip()
         if not content:
             return
-        db_log.add_thought(content)
-        self.text_edit.clear()          #clear input
-        self.load_thoughts_from_db()    #refresh right panel
-
+        db_log.add_thought(content, self.db_path)
+        self.text_edit.clear()  # clear input
+        self.load_thoughts_from_db()  # refresh right panel
 
     def load_thoughts_from_db(self):
         # Clear existing cards (if any)
@@ -207,63 +214,123 @@ class MuserApp(QWidget):
             if widget:
                 widget.setParent(None)
 
-        thoughts = db_log.get_all_thoughts()  # fetch from DB
+        thoughts = db_log.get_all_thoughts(self.db_path)  # fetch from DB
         if not self.sort_desc:
             thoughts = reversed(thoughts)  # oldest first
 
         for thought_id, timestamp, content in thoughts:
             card = ThoughtCard(thought_id, timestamp, content)
-            card.clicked.connect(lambda id, ts, text: self.show_enlarged_card(id, ts, text))
+            card.clicked.connect(lambda xid, ts, text: self.show_enlarged_card(xid, ts, text))
             self.scroll_layout.insertWidget(self.scroll_layout.count() - 1, card)
 
-
     def open_edit_dialog(self):
-        dialog = EditThoughtDialog(parent=self)
+        dialog = EditThoughtDialog(self.db_path, parent=self)
         if dialog.exec():  # only runs if user clicks Save
             self.load_thoughts_from_db()  # refresh right panel
-
 
     def open_delete_dialog(self):
         dialog = DeleteThoughtDialog(parent=self)
         if dialog.exec():  # only runs if user clicks Delete
             thought_id = dialog.get_id()
             if thought_id is not None:
-                db_log.delete_thought(thought_id)
+                db_log.delete_thought(thought_id, self.db_path)
                 self.load_thoughts_from_db()
 
     def open_settings_dialog(self):
-        old_dir = self.pdf_export_dir
+        from PySide6.QtWidgets import QMessageBox
+        import shutil
 
-        dialog = SettingsDialog(self.pdf_export_dir, parent=self)
-        if dialog.exec():
-            new_dir = dialog.export_dir
+        dialog = SettingsDialog(self.pdf_export_dir, self.db_path, parent=self)
 
-            if new_dir != old_dir:
-                # Remove old PDF
-                old_pdf = os.path.join(old_dir, "musings.pdf")
-                if os.path.exists(old_pdf):
+        if not dialog.exec():
+            return  # User cancelled
+
+        if not dialog.has_changes():
+            return  # Nothing changed
+
+        # ----------------------------
+        # DATABASE LOCATION
+        # ----------------------------
+        if dialog.db_changed():
+            old_db = self.db_path
+            new_db = dialog.db_path
+
+            try:
+                # Copy existing DB to new location (if it exists)
+                if os.path.exists(old_db):
+                    shutil.copy2(old_db, new_db)
+
+                # Update app state
+                self.db_path = new_db
+                self.settings["db_path"] = new_db
+                db_log.set_db_path(new_db)
+                db_log.init_db(new_db)
+
+                # Only delete old DB after successful copy and init
+                if os.path.exists(old_db) and old_db != new_db:
                     try:
-                        os.remove(old_pdf)
+                        os.remove(old_db)
                     except OSError:
-                        pass
+                        pass  # Not critical if we can't delete old file
 
-                # Update state
-                self.pdf_export_dir = new_dir
-                self.settings["pdf_export_dir"] = new_dir
-                settings.save_settings(self.settings)
+                # Refresh UI from new DB
+                self.load_thoughts_from_db()
 
-                # Export immediately
-                new_pdf = os.path.join(new_dir, "musings.pdf")
-                pdf_export.export_to_pdf(new_pdf)
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Database Error",
+                    f"Failed to move database:\n{e}\n\nKeeping original location."
+                )
+                return  # Don't save settings if DB move failed
 
+        # ----------------------------
+        # PDF EXPORT LOCATION  
+        # ----------------------------
+        if dialog.pdf_changed():
+            old_pdf_dir = self.pdf_export_dir
+            new_pdf_dir = dialog.export_dir
 
-    # on close
+            # Update app state
+            self.pdf_export_dir = new_pdf_dir
+            self.settings["pdf_export_dir"] = new_pdf_dir
+
+            # Remove old PDF file (optional cleanup)
+            old_pdf_file = os.path.join(old_pdf_dir, "musings.pdf")
+            if os.path.exists(old_pdf_file):
+                try:
+                    os.remove(old_pdf_file)
+                except OSError:
+                    pass
+
+            # Export to new location
+            try:
+                pdf_export.export_to_pdf(
+                    os.path.join(new_pdf_dir, "musings.pdf"),
+                    self.db_path
+                )
+            except Exception as e:
+                QMessageBox.warning(
+                    self,
+                    "PDF Export Warning",
+                    f"Failed to export PDF to new location:\n{e}\n\nSettings saved anyway."
+                )
+
+        # ----------------------------
+        # SAVE SETTINGS
+        # ----------------------------
+        settings.save_settings(self.settings)
+
     def closeEvent(self, event):
         import os
         import pdf_export
+        import db_log
+
+        # Ensure DB is initialized before exporting
+        db_log.init_db(self.db_path)
 
         pdf_path = os.path.join(self.pdf_export_dir, "musings.pdf")
-        pdf_export.export_to_pdf(pdf_path)
+        pdf_export.export_to_pdf(pdf_path, self.db_path)
 
         event.accept()
 

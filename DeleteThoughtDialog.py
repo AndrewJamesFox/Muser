@@ -1,5 +1,4 @@
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout
-from PySide6.QtCore import Qt
 
 class DeleteThoughtDialog(QDialog):
     def __init__(self, parent=None):

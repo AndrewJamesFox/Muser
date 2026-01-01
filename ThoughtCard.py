@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QFrame
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QFont, QFontMetrics
+from PySide6.QtGui import QFont
 from datetime import datetime
 from ElidedLabel import ElidedLabel
 

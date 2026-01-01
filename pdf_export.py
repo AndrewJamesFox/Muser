@@ -4,16 +4,19 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import letter
 
-DB_PATH = "musings.db"
 
-def export_to_pdf(pdf_path="musings.pdf"):
+def export_to_pdf(pdf_path, db_path):
     """Fetch thoughts from database and export them to PDF."""
-    # Fetch thoughts.
-    with sqlite3.connect(DB_PATH) as conn:
+    # Fetch thoughts from the provided db_path
+    with sqlite3.connect(db_path) as conn:
         cursor = conn.execute(
             "SELECT id, timestamp, content FROM musings ORDER BY id ASC"
         )
         thoughts = cursor.fetchall()
+
+    # If no thoughts, skip PDF creation
+    if not thoughts:
+        return
 
     doc = SimpleDocTemplate(pdf_path, pagesize=letter)  # create new PDF
     styles = getSampleStyleSheet()                      # load styles
@@ -31,10 +34,10 @@ def export_to_pdf(pdf_path="musings.pdf"):
         # Elements
         header = Paragraph(f"{thought_id}", styles["Heading1"])            # ID header
         body = Paragraph(content.replace("\n", "<br/>"), styles["BodyText"])    # thought body
-        timestamp = Paragraph(formatted_time, styles["Italic"])                 # timestamp
+        timestamp_para = Paragraph(formatted_time, styles["Italic"])            # timestamp
         story.extend([header, Spacer(1, 12),                       # add to pdf element story
                       body, Spacer(1, 24),
-                      timestamp])
+                      timestamp_para])
 
         # Add a page break if not the last thought
         if idx < len(thoughts) - 1:
